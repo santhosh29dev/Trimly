@@ -8,12 +8,12 @@ router.post("/shorten", async (req, res) => {
   try {
     const { originalUrl } = req.body;
     if (!originalUrl) {
-      return res.status(400).json({ err: "Url is required" });
+      return res.status(400).json({ error: "Url is required" });
     }
     try {
       new URL(originalUrl);
     } catch {
-      return res.status(400).json({ err: "Invalid URL" });
+      return res.status(400).json({ error: "Invalid URL" });
     }
 
     let shortId;
@@ -32,13 +32,13 @@ router.post("/shorten", async (req, res) => {
       shortId: url.shortId,
       shortUrl: `${process.env.BASE_URL}/${url.shortId}`,
     });
-  } catch (err) {
-    console.log(err);
-    res.status(500).json({ err: "server error" });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ error: "server error" });
   }
 });
 
-router.get("/shortId", async (req, res) => {
+router.get("/:shortId", async (req, res) => {
   try {
     const { shortId } = req.params;
 
