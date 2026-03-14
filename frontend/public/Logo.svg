@@ -1,0 +1,102 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <defs>
+    <!-- Outer ring gradient: orange top to red bottom -->
+    <radialGradient id="bgGrad" cx="45%" cy="38%" r="55%">
+      <stop offset="0%" stop-color="#3a2010"/>
+      <stop offset="60%" stop-color="#1a1a2a"/>
+      <stop offset="100%" stop-color="#0d0d0d"/>
+    </radialGradient>
+
+    <!-- Orange glow gradient for left chain link -->
+    <linearGradient id="leftLink" x1="0%" y1="50%" x2="100%" y2="50%">
+      <stop offset="0%"   stop-color="#ff9800"/>
+      <stop offset="40%"  stop-color="#ffe066"/>
+      <stop offset="100%" stop-color="#fff4c2"/>
+    </linearGradient>
+
+    <!-- Dark gradient for right chain link -->
+    <linearGradient id="rightLink" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%"   stop-color="#6a6a7a"/>
+      <stop offset="50%"  stop-color="#2a2a3a"/>
+      <stop offset="100%" stop-color="#111118"/>
+    </linearGradient>
+
+    <!-- Ring border gradient -->
+    <linearGradient id="ringGrad" x1="20%" y1="0%" x2="80%" y2="100%">
+      <stop offset="0%"   stop-color="#ffaa00"/>
+      <stop offset="50%"  stop-color="#ff5500"/>
+      <stop offset="100%" stop-color="#cc2200"/>
+    </linearGradient>
+
+    <!-- Glow filter -->
+    <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="2.5" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+
+    <!-- Soft glow for speed lines -->
+    <filter id="glowSoft" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="1.5" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+
+    <clipPath id="circleClip">
+      <circle cx="50" cy="50" r="44"/>
+    </clipPath>
+  </defs>
+
+  <!-- Outer glow ring -->
+  <circle cx="50" cy="50" r="48" fill="none" stroke="#ff6600" stroke-width="1.5" opacity="0.4"/>
+
+  <!-- Ring border -->
+  <circle cx="50" cy="50" r="46" fill="none" stroke="url(#ringGrad)" stroke-width="3"/>
+
+  <!-- Dark background circle -->
+  <circle cx="50" cy="50" r="44" fill="url(#bgGrad)"/>
+
+  <!-- Inner content clipped to circle -->
+  <g clip-path="url(#circleClip)">
+
+    <!-- Orange inner glow blob -->
+    <ellipse cx="42" cy="54" rx="22" ry="14" fill="#ff6600" opacity="0.25" filter="url(#glow)"/>
+
+    <!-- Speed lines (left, behind chain) -->
+    <g filter="url(#glowSoft)" opacity="0.95">
+      <!-- Top speed line -->
+      <rect x="14" y="43" width="18" height="3.5" rx="1.8" fill="#ffaa00"/>
+      <!-- Middle speed line (brightest) -->
+      <rect x="11" y="48.5" width="22" height="4" rx="2" fill="#ffe066"/>
+      <!-- Bottom speed line -->
+      <rect x="14" y="54.5" width="15" height="3" rx="1.5" fill="#ff8800"/>
+    </g>
+
+    <!-- LEFT chain link (glowing orange) -->
+    <g filter="url(#glow)">
+      <!-- Outer shape of left link -->
+      <path d="M36 42 Q28 42 28 50 Q28 58 36 58 L46 58 Q50 58 52 54 L48 54 Q47 56 46 56 L36 56 Q31 56 31 50 Q31 44 36 44 L46 44 Q47 44 48 46 L52 46 Q50 42 46 42 Z"
+            fill="url(#leftLink)" opacity="0.95"/>
+      <!-- Inner cutout highlight -->
+      <path d="M37 46 Q33 46 33 50 Q33 54 37 54 L45 54 L45 52 L37 52 Q35 52 35 50 Q35 48 37 48 L45 48 L45 46 Z"
+            fill="#fff8e0" opacity="0.6"/>
+    </g>
+
+    <!-- RIGHT chain link (dark metallic) -->
+    <g>
+      <!-- Outer shape of right link -->
+      <path d="M54 42 Q46 42 44 46 L48 46 Q49 44 54 44 L64 44 Q69 44 69 50 Q69 56 64 56 L54 56 Q53 56 52 54 L48 54 Q50 58 54 58 L64 58 Q72 58 72 50 Q72 42 64 42 Z"
+            fill="url(#rightLink)" opacity="0.95"/>
+      <!-- Rim highlight -->
+      <path d="M54 44 Q52 44 51 46 L53 46 Q54 44.5 54 44 L64 44 Q67 44 68.5 47 Q67 44.5 64 44.5 Z"
+            fill="#888899" opacity="0.5"/>
+      <!-- Inner cutout -->
+      <path d="M55 48 L55 46 L54 46 Q50 46 50 50 Q50 54 54 54 L55 54 L55 52 Q52 52 52 50 Q52 48 55 48 Z"
+            fill="#0d0d18" opacity="0.8"/>
+      <rect x="55" y="46" width="8" height="2" rx="1" fill="#0d0d18" opacity="0.8"/>
+      <rect x="55" y="52" width="8" height="2" rx="1" fill="#0d0d18" opacity="0.8"/>
+    </g>
+
+    <!-- Bright center connection glow -->
+    <ellipse cx="50" cy="50" rx="4" ry="5" fill="#fff8c0" opacity="0.7" filter="url(#glow)"/>
+
+  </g>
+</svg>
