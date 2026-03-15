@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import axios from "axios";
 import QRCode from "react-qr-code";
 import QRCodeGenerator from "qrcode";
@@ -6,317 +6,327 @@ import QRCodeGenerator from "qrcode";
 const API_BASE_URL = import.meta.env.VITE_BACKEND_URL;
 
 const styles = `
-  @import url('https://fonts.googleapis.com/css2?family=Clash+Display:wght@400;500;600;700&family=Cabinet+Grotesk:wght@400;500;700;800&display=swap');
-  @import url('https://api.fontshare.com/v2/css?f[]=clash-display@400,500,600,700&f[]=cabinet-grotesk@400,500,700,800&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Clash+Display:wght@500;600;700&family=Cabinet+Grotesk:wght@500;700;800&display=swap');
 
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  *, *::before, *::after { box-sizing: border-box; margin:0; padding:0; }
 
   :root {
     --coral:   #ff5c3a;
     --amber:   #ffb020;
-    --teal:    #00c9a7;
-    --sky:     #38b6ff;
-    --violet:  #8b5cf6;
-    --bg:      #0d0d0f;
-    --surface: rgba(255,255,255,0.05);
-    --border:  rgba(255,255,255,0.10);
-    --text:    #f5f3ef;
-    --muted:   rgba(245,243,239,0.45);
+    --teal:    #00d4b8;
+    --sky:     #40c4ff;
+    --orange:  #ff8c00;     /* new - main orange */
+    --dark-orange: #ff6200; /* deeper tone for gradient */
+    --bg:      #0a0a0e;
+    --surface: rgba(20,20,25,0.7);
+    --border:  rgba(120,120,140,0.14);
+    --text:    #f8f6f2;
+    --muted:   rgba(240,235,225,0.48);
   }
 
   body {
-    font-family: 'Cabinet Grotesk', 'DM Sans', sans-serif;
+    font-family: 'Cabinet Grotesk', system-ui, sans-serif;
     background: var(--bg);
-    min-height: 100vh;
     color: var(--text);
-    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
     overflow-x: hidden;
   }
 
-  /* ── Animated mesh background ── */
+  /* ── Neon Hourglass Preloader (now orange) ── */
+  .preloader {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    background: var(--bg);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2.5rem;
+    transition: opacity 0.7s ease 0.4s;
+  }
+
+  .preloader.hidden {
+    opacity: 0;
+    pointer-events: none;
+    visibility: hidden;
+  }
+
+  .hourglass-container {
+    position: relative;
+    width: 90px;
+    height: 140px;
+  }
+
+  .hourglass-svg {
+    width: 100%;
+    height: 100%;
+  }
+
+  .glow-ring {
+    position: absolute;
+    inset: -20px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 50% 50%, rgba(255, 140, 0, 0.22) 0%, transparent 70%);
+    animation: pulseGlow 3.2s ease-in-out infinite;
+    pointer-events: none;
+  }
+
+  .particles {
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    width: 6px;
+    height: 6px;
+    background: var(--orange);
+    border-radius: 50%;
+    box-shadow: 0 0 12px var(--orange);
+    opacity: 0;
+    animation: fallParticles 2.8s infinite;
+  }
+
+  .particles:nth-child(2) { left: 42%; animation-delay: 0.4s; }
+  .particles:nth-child(3) { left: 58%; animation-delay: 0.9s; }
+  .particles:nth-child(4) { left: 35%; animation-delay: 1.6s; }
+
+  @keyframes pulseGlow {
+    0%, 100% { opacity: 0.3; transform: scale(0.9); }
+    50%      { opacity: 0.75; transform: scale(1.18); }
+  }
+
+  @keyframes fallParticles {
+    0%   { transform: translateY(-140px) scale(0); opacity: 0; }
+    20%  { opacity: 1; }
+    100% { transform: translateY(160px) scale(0.4); opacity: 0; }
+  }
+
+  .loading-text {
+    font-family: 'Clash Display', system-ui, sans-serif;
+    font-size: 1.4rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    background: linear-gradient(90deg, var(--orange), var(--amber), var(--orange));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    background-size: 200% 100%;
+    animation: textShimmer 3s ease-in-out infinite;
+  }
+
+  @keyframes textShimmer {
+    0%   { background-position: 0% 50%; }
+    100% { background-position: -200% 50%; }
+  }
+
+  /* ── Background (unchanged) ── */
   .mesh {
-    position: fixed; inset: 0; z-index: 0; pointer-events: none;
+    position: fixed; inset: 0; z-index: -2;
     background:
-      radial-gradient(ellipse 70% 55% at 15% 10%,  rgba(255,92,58,0.22)  0%, transparent 60%),
-      radial-gradient(ellipse 60% 50% at 85% 20%,  rgba(56,182,255,0.18) 0%, transparent 55%),
-      radial-gradient(ellipse 55% 60% at 70% 80%,  rgba(0,201,167,0.20)  0%, transparent 55%),
-      radial-gradient(ellipse 50% 45% at 20% 75%,  rgba(255,176,32,0.16) 0%, transparent 50%),
-      #0d0d0f;
-    animation: meshShift 14s ease-in-out infinite alternate;
-  }
-  @keyframes meshShift {
-    0%   { filter: hue-rotate(0deg)   brightness(1); }
-    50%  { filter: hue-rotate(18deg)  brightness(1.05); }
-    100% { filter: hue-rotate(-12deg) brightness(0.97); }
+      radial-gradient(ellipse 80% 60% at 10% 15%, rgba(255,82,82,0.18) 0%, transparent 65%),
+      radial-gradient(ellipse 70% 55% at 90% 25%, rgba(64,196,255,0.14) 0%, transparent 60%),
+      radial-gradient(ellipse 60% 70% at 65% 85%, rgba(0,212,184,0.16) 0%, transparent 60%),
+      var(--bg);
+    animation: meshDrift 18s ease-in-out infinite alternate;
   }
 
-  /* Floating blobs */
+  @keyframes meshDrift {
+    0%   { background-position: 0% 0%; filter: hue-rotate(0deg) brightness(1); }
+    100% { background-position: 30% 20%; filter: hue-rotate(10deg) brightness(1.04); }
+  }
+
   .blob {
-    position: fixed; border-radius: 50%; filter: blur(90px);
-    pointer-events: none; z-index: 0; opacity: 0.55;
+    position: fixed; border-radius: 50%; filter: blur(100px); opacity: 0.42;
+    pointer-events: none; z-index: -1;
+    animation: float infinite alternate ease-in-out;
   }
-  .blob-1 { width: 420px; height: 420px; background: var(--coral);  top: -140px; left: -80px;  animation: float1 20s ease-in-out infinite alternate; }
-  .blob-2 { width: 340px; height: 340px; background: var(--teal);   bottom: -80px; right: -60px; animation: float2 16s ease-in-out infinite alternate; }
-  .blob-3 { width: 260px; height: 260px; background: var(--amber);  top: 45%; left: 55%; animation: float3 18s ease-in-out infinite alternate; }
-  @keyframes float1 { to { transform: translate(60px, 80px) scale(1.1); } }
-  @keyframes float2 { to { transform: translate(-50px, -60px) scale(1.08); } }
-  @keyframes float3 { to { transform: translate(30px, -40px) scale(0.92); } }
+  .blob-1 { width: 480px; height: 480px; background: var(--coral);  top: -20vh; left: -15vw; animation-duration: 22s; }
+  .blob-2 { width: 380px; height: 380px; background: var(--teal);   bottom: -10vh; right: -10vw; animation-duration: 26s; animation-delay: -4s; }
+  .blob-3 { width: 300px; height: 300px; background: var(--amber);  top: 40%; left: 60%; animation-duration: 19s; animation-delay: -8s; }
 
-  /* ── Layout ── */
-  .page {
-    position: relative; z-index: 1;
-    min-height: 100vh;
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 0;
-    align-items: stretch;
+  @keyframes float {
+    to { transform: translate(60px, 80px) scale(1.15) rotate(6deg); }
   }
 
-  /* Left column — branding */
+  /* Layout & rest of styles remain the same */
+  .page { position: relative; z-index: 1; min-height: 100vh; display: grid; grid-template-columns: 1fr 1fr; }
+
   .left-col {
+    padding: 5rem 4rem;
     display: flex; flex-direction: column; justify-content: center;
-    padding: 4rem 3rem 4rem 4rem;
-    border-right: 1px solid var(--border);
-    animation: fadeLeft 0.7s cubic-bezier(0.16,1,0.3,1) both;
-  }
-  @keyframes fadeLeft {
-    from { opacity: 0; transform: translateX(-30px); }
-    to   { opacity: 1; transform: translateX(0); }
+    animation: slideInLeft 0.9s cubic-bezier(0.16,1,0.3,1) both;
   }
 
-  .brand-tag {
-    display: inline-flex; align-items: center; gap: 8px;
-    font-size: 11px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase;
-    color: var(--amber); margin-bottom: 1.8rem;
+  .right-col {
+    padding: 5rem 4rem;
+    animation: slideInRight 1s cubic-bezier(0.16,1,0.3,1) 0.12s both;
   }
-  .brand-tag-dot {
-    width: 8px; height: 8px; border-radius: 50%; background: var(--amber);
-    animation: pulseDot 2s ease-in-out infinite;
-  }
-  @keyframes pulseDot {
-    0%,100% { box-shadow: 0 0 0 0 rgba(255,176,32,0.6); }
-    50%      { box-shadow: 0 0 0 8px rgba(255,176,32,0); }
-  }
+
+  @keyframes slideInLeft  { from { opacity:0; transform: translateX(-60px); } to { opacity:1; transform:none; } }
+  @keyframes slideInRight { from { opacity:0; transform: translateX(60px);  } to { opacity:1; transform:none; } }
 
   .big-title {
-    font-family: 'Clash Display', 'Syne', sans-serif;
-    font-size: clamp(2.8rem, 4.5vw, 4.2rem);
-    font-weight: 700; line-height: 1.0; letter-spacing: -0.03em;
-    margin-bottom: 1.2rem;
+    font-family: 'Clash Display', system-ui, sans-serif;
+    font-size: clamp(3.2rem, 6vw, 5.2rem);
+    font-weight: 800;
+    line-height: 0.96;
+    letter-spacing: -0.04em;
+    margin-bottom: 1.4rem;
   }
+
   .gradient-word {
-    background: linear-gradient(135deg, var(--coral) 0%, var(--amber) 45%, var(--teal) 100%);
-    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background: linear-gradient(110deg, var(--coral), var(--amber), var(--teal));
+    -webkit-background-clip: text;
     background-clip: text;
-    background-size: 200% 200%;
-    animation: gradShift 5s ease-in-out infinite alternate;
+    color: transparent;
+    background-size: 180%;
+    animation: hueFlow 7s ease-in-out infinite alternate;
   }
-  @keyframes gradShift {
-    from { background-position: 0% 50%; }
-    to   { background-position: 100% 50%; }
+
+  @keyframes hueFlow {
+    0%   { background-position: 0% 50%; }
+    100% { background-position: 100% 50%; }
   }
 
   .left-desc {
-    font-size: 15px; color: var(--muted); line-height: 1.7; max-width: 340px;
-    margin-bottom: 2.5rem; font-weight: 500;
+    font-size: 15.5px; line-height: 1.65; color: var(--muted); max-width: 360px;
+    margin-bottom: 2.4rem;
   }
 
-  /* Feature pills */
-  .pills { display: flex; flex-direction: column; gap: 10px; }
   .pill {
-    display: inline-flex; align-items: center; gap: 10px;
-    font-size: 13px; font-weight: 600; color: var(--muted);
-    animation: fadeLeft 0.7s cubic-bezier(0.16,1,0.3,1) both;
+    display: flex; align-items: center; gap: 12px;
+    font-size: 13.5px; font-weight: 600; color: var(--muted);
+    margin-bottom: 0.6rem;
+    transition: all 0.3s ease;
   }
-  .pill:nth-child(2) { animation-delay: 0.08s; }
-  .pill:nth-child(3) { animation-delay: 0.16s; }
-  .pill-icon {
-    width: 28px; height: 28px; border-radius: 8px;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 13px; flex-shrink: 0;
-  }
-  .pi-coral  { background: rgba(255,92,58,0.2);  color: var(--coral); }
-  .pi-teal   { background: rgba(0,201,167,0.2);  color: var(--teal); }
-  .pi-amber  { background: rgba(255,176,32,0.2); color: var(--amber); }
 
-  /* Right column — form */
-  .right-col {
-    display: flex; flex-direction: column; justify-content: center;
-    padding: 4rem 4rem 4rem 3rem;
-    animation: fadeRight 0.7s 0.15s cubic-bezier(0.16,1,0.3,1) both;
-  }
-  @keyframes fadeRight {
-    from { opacity: 0; transform: translateX(30px); }
-    to   { opacity: 1; transform: translateX(0); }
+  .pill:hover { color: var(--text); transform: translateX(6px); }
+
+  .pill-icon {
+    width: 32px; height: 32px;
+    border-radius: 10px;
+    display: grid; place-items: center;
+    font-size: 15px;
+    flex-shrink: 0;
   }
 
   .card {
-    background: rgba(255,255,255,0.04);
+    background: var(--surface);
     border: 1px solid var(--border);
-    border-radius: 20px;
-    padding: 2rem;
-    backdrop-filter: blur(20px);
-    box-shadow: 0 24px 60px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.08);
+    border-radius: 24px;
+    padding: 2.2rem 2rem;
+    backdrop-filter: blur(22px);
+    box-shadow: 0 20px 60px rgba(0,0,0,0.38), inset 0 1px 0 rgba(255,255,255,0.06);
+    transition: transform 0.4s ease, box-shadow 0.4s ease;
   }
 
-  .card-label {
-    font-size: 11px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase;
-    color: var(--muted); margin-bottom: 1.2rem;
-  }
-
-  .input-wrap {
-    display: flex; flex-direction: column; gap: 10px; margin-bottom: 1rem;
-  }
+  .card:hover { transform: translateY(-4px); box-shadow: 0 28px 80px rgba(0,0,0,0.45); }
 
   .url-input {
-    width: 100%; background: rgba(255,255,255,0.06);
-    border: 1px solid var(--border); border-radius: 12px;
-    outline: none; color: var(--text);
-    font-family: 'Cabinet Grotesk', sans-serif; font-size: 14px; font-weight: 500;
-    padding: 0.85rem 1.1rem;
-    transition: border-color 0.2s, box-shadow 0.2s;
+    width: 100%;
+    padding: 1rem 1.3rem;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    color: var(--text);
+    font-size: 15px;
+    transition: all 0.25s ease;
   }
-  .url-input::placeholder { color: rgba(245,243,239,0.22); }
+
   .url-input:focus {
     border-color: var(--coral);
-    box-shadow: 0 0 0 3px rgba(255,92,58,0.15);
+    box-shadow: 0 0 0 4px rgba(255,92,58,0.14);
+    transform: scale(1.01);
   }
 
-  /* ── THE BUTTON with conic spin ring ── */
-  .btn-wrap {
-    position: relative; width: 100%;
-  }
   .btn-shorten {
-    position: relative; width: 100%; z-index: 1;
-    padding: 0.9rem 1.5rem; border: none; border-radius: 12px; cursor: pointer;
-    font-family: 'Clash Display', sans-serif; font-size: 15px; font-weight: 600;
-    letter-spacing: 0.02em; color: #fff;
-    background: linear-gradient(135deg, var(--coral) 0%, var(--amber) 50%, var(--teal) 100%);
-    background-size: 200% 200%;
-    transition: transform 0.15s, box-shadow 0.15s, background-position 0.4s;
-    box-shadow: 0 8px 32px rgba(255,92,58,0.35);
+    margin-top: 1.1rem;
+    width: 100%;
+    padding: 1rem;
+    border: none;
+    border-radius: 14px;
+    background: linear-gradient(135deg, var(--coral), var(--amber) 60%, var(--teal));
+    background-size: 300%;
+    color: white;
+    font-weight: 700;
+    font-size: 15.5px;
+    cursor: pointer;
+    transition: all 0.28s ease;
+    position: relative;
     overflow: hidden;
-    display: flex; align-items: center; justify-content: center; gap: 10px;
   }
-  .btn-shorten:hover:not(:disabled) {
-    transform: translateY(-2px);
-    box-shadow: 0 12px 40px rgba(255,92,58,0.5);
+
+  .btn-shorten:hover {
     background-position: 100% 100%;
-  }
-  .btn-shorten:active:not(:disabled) { transform: translateY(0); }
-  .btn-shorten:disabled { opacity: 0.55; cursor: not-allowed; }
-
-  /* Shimmer sweep on button */
-  .btn-shorten::after {
-    content: ''; position: absolute; inset: 0;
-    background: linear-gradient(105deg, transparent 40%, rgba(255,255,255,0.18) 50%, transparent 60%);
-    transform: translateX(-100%);
-  }
-  .btn-shorten:hover::after { animation: shimmer 0.6s ease forwards; }
-  @keyframes shimmer {
-    to { transform: translateX(100%); }
+    transform: translateY(-3px);
+    box-shadow: 0 12px 40px rgba(255,92,58,0.4);
   }
 
-  /* Conic spinning ring — the star of the show */
-  .spin-ring {
-    position: relative; width: 22px; height: 22px; flex-shrink: 0;
-  }
-  .spin-ring::before {
-    content: '';
-    position: absolute; inset: 0;
-    border-radius: 50%;
-    background: conic-gradient(
-      from 0deg,
-      rgba(255,255,255,0)   0%,
-      rgba(255,255,255,0.3) 30%,
-      rgba(255,255,255,0.9) 60%,
-      rgba(255,255,255,1)   80%,
-      rgba(255,255,255,0)   100%
-    );
-    animation: conicSpin 0.9s linear infinite;
-    -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #fff calc(100% - 2px));
-    mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #fff calc(100% - 2px));
-  }
-  @keyframes conicSpin { to { transform: rotate(360deg); } }
+  .btn-shorten:active { transform: translateY(0); }
 
-  /* ── Result section ── */
+  .btn-shorten:disabled { opacity: 0.5; cursor: not-allowed; }
+
   .result-section {
-    margin-top: 1.4rem;
-    animation: popUp 0.45s cubic-bezier(0.34,1.56,0.64,1) both;
-  }
-  @keyframes popUp {
-    from { opacity: 0; transform: translateY(16px) scale(0.97); }
-    to   { opacity: 1; transform: translateY(0) scale(1); }
+    margin-top: 1.6rem;
+    opacity: 0;
+    transform: translateY(20px);
+    animation: resultPop 0.6s cubic-bezier(0.34,1.6,0.64,1) 0.2s forwards;
   }
 
-  .divider {
-    height: 1px;
-    background: linear-gradient(90deg, transparent, var(--border), transparent);
-    margin: 1.2rem 0;
-  }
+  @keyframes resultPop { to { opacity:1; transform:none; } }
 
   .result-chip {
-    display: flex; align-items: center; gap: 10px;
-    background: rgba(0,201,167,0.08); border: 1px solid rgba(0,201,167,0.2);
-    border-radius: 10px; padding: 0.75rem 1rem;
-    margin-bottom: 0.8rem;
+    background: rgba(255,140,0,0.08);
+    border: 1px solid rgba(255,140,0,0.2);
+    border-radius: 12px;
+    padding: 0.9rem 1.2rem;
+    display: flex; align-items: center; gap: 12px;
+    transition: all 0.3s ease;
   }
-  .result-link {
-    flex: 1; min-width: 0;
-    font-family: 'Clash Display', sans-serif; font-size: 14px; font-weight: 600;
-    color: var(--teal); text-decoration: none; word-break: break-all;
-    transition: color 0.15s;
-  }
-  .result-link:hover { color: #4dffd8; }
+
+  .result-chip:hover { transform: scale(1.02); }
 
   .btn-copy {
-    flex-shrink: 0; padding: 0.3rem 0.8rem; border-radius: 7px;
+    padding: 0.5rem 1rem;
+    border-radius: 10px;
+    background: rgba(255,255,255,0.06);
     border: 1px solid rgba(255,255,255,0.12);
-    background: rgba(255,255,255,0.07); color: rgba(245,243,239,0.7);
-    font-family: 'Cabinet Grotesk', sans-serif; font-size: 12px; font-weight: 700;
-    cursor: pointer; transition: all 0.2s;
-    text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--muted);
+    font-weight: 700;
+    font-size: 12.5px;
+    transition: all 0.22s ease;
+    cursor: pointer;
   }
-  .btn-copy:hover { background: rgba(255,255,255,0.12); color: var(--text); }
+
   .btn-copy.copied {
-    background: rgba(0,201,167,0.15); border-color: rgba(0,201,167,0.4); color: var(--teal);
+    background: rgba(255,140,0,0.18);
+    border-color: var(--orange);
+    color: var(--orange);
+    transform: scale(1.08);
   }
 
-  /* QR area */
   .qr-area {
-    display: flex; gap: 1.2rem; align-items: flex-start;
-    animation: popUp 0.45s 0.1s cubic-bezier(0.34,1.56,0.64,1) both;
+    margin-top: 1.4rem;
+    display: flex; gap: 1.4rem;
+    opacity: 0;
+    animation: fadeInUp 0.7s ease-out 0.5s forwards;
   }
+
+  @keyframes fadeInUp { from { opacity:0; transform: translateY(18px); } to { opacity:1; transform:none; } }
+
   .qr-box {
-    background: #fff; border-radius: 12px; padding: 10px; flex-shrink: 0;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.3),
-                0 0 0 1px rgba(255,255,255,0.1),
-                0 0 30px rgba(0,201,167,0.2);
-  }
-  .qr-info { display: flex; flex-direction: column; gap: 0.7rem; justify-content: center; }
-  .qr-desc { font-size: 13px; color: var(--muted); line-height: 1.6; font-weight: 500; }
-
-  .btn-dl {
-    display: inline-flex; align-items: center; gap: 6px;
-    padding: 0.5rem 1rem; border-radius: 9px;
-    background: linear-gradient(135deg, rgba(56,182,255,0.15), rgba(0,201,167,0.15));
-    border: 1px solid rgba(56,182,255,0.25);
-    color: var(--sky); text-decoration: none;
-    font-family: 'Cabinet Grotesk', sans-serif; font-size: 12px; font-weight: 700;
-    letter-spacing: 0.06em; text-transform: uppercase;
-    transition: all 0.2s; width: fit-content;
-  }
-  .btn-dl:hover {
-    background: linear-gradient(135deg, rgba(56,182,255,0.25), rgba(0,201,167,0.25));
-    box-shadow: 0 4px 16px rgba(56,182,255,0.2);
+    background: white;
+    padding: 12px;
+    border-radius: 14px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.35), 0 0 0 1px rgba(255,140,0,0.15);
+    transition: transform 0.4s ease;
   }
 
-  /* Responsive */
-  @media (max-width: 700px) {
+  .qr-box:hover { transform: scale(1.06) rotate(2deg); }
+
+  @media (max-width: 780px) {
     .page { grid-template-columns: 1fr; }
-    .left-col { padding: 3rem 1.5rem 1.5rem; border-right: none; border-bottom: 1px solid var(--border); }
-    .right-col { padding: 1.5rem; }
-    .big-title { font-size: 2.2rem; }
+    .left-col, .right-col { padding: 3rem 1.8rem; }
+    .left-col { border-bottom: 1px solid var(--border); }
   }
 `;
 
@@ -326,6 +336,15 @@ export default function App() {
   const [copied, setCopied] = useState(false);
   const [qrImage, setQrImage] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showPreloader, setShowPreloader] = useState(true);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setShowPreloader(false);
+    }, 5000);
+
+    return () => clearTimeout(timer);
+  }, []);
 
   const handleShorten = async () => {
     if (!url.trim() || loading) return;
@@ -334,16 +353,19 @@ export default function App() {
       const res = await axios.post(`${API_BASE_URL}/shorten`, {
         originalUrl: url,
       });
-      const newShortUrl = res.data.shortUrl;
-      setShortUrl(newShortUrl);
+      const newShort = res.data.shortUrl;
+      setShortUrl(newShort);
       setCopied(false);
-      const qr = await QRCodeGenerator.toDataURL(newShortUrl, {
+
+      const qrData = await QRCodeGenerator.toDataURL(newShort, {
         margin: 1,
-        width: 140,
+        width: 160,
+        color: { dark: "#000000", light: "#ffffff" },
       });
-      setQrImage(qr);
-    } catch {
-      alert("Something went wrong. Please try again.");
+      setQrImage(qrData);
+    } catch (err) {
+      alert("Couldn't shorten the link — check the URL?");
+      console.error(err);
     } finally {
       setLoading(false);
     }
@@ -352,121 +374,300 @@ export default function App() {
   const handleCopy = () => {
     navigator.clipboard.writeText(shortUrl);
     setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    setTimeout(() => setCopied(false), 1800);
   };
 
   return (
     <>
       <style>{styles}</style>
+
+      {/* Orange-themed preloader */}
+      <div className={`preloader ${!showPreloader ? "hidden" : ""}`}>
+        <div className="hourglass-container">
+          <svg
+            className="hourglass-svg"
+            viewBox="0 0 100 160"
+            preserveAspectRatio="xMidYMid meet"
+          >
+            {/* Outer frame */}
+            <rect
+              x="8"
+              y="8"
+              width="84"
+              height="144"
+              rx="12"
+              fill="none"
+              stroke="rgba(255,140,0,0.4)"
+              strokeWidth="3"
+            />
+
+            {/* Top triangle */}
+            <polygon
+              points="20,30 80,30 50,80"
+              fill="none"
+              stroke="var(--orange)"
+              strokeWidth="2"
+            />
+
+            {/* Bottom triangle */}
+            <polygon
+              points="20,130 80,130 50,80"
+              fill="none"
+              stroke="var(--orange)"
+              strokeWidth="2"
+            />
+
+            {/* Falling sand - orange gradient */}
+            <g clipPath="url(#sandClip)">
+              <rect
+                x="25"
+                y="35"
+                width="50"
+                height="90"
+                fill="url(#sandGradient)"
+              >
+                <animate
+                  attributeName="height"
+                  values="90;0;90"
+                  dur="4.2s"
+                  repeatCount="indefinite"
+                />
+                <animate
+                  attributeName="y"
+                  values="35;125;35"
+                  dur="4.2s"
+                  repeatCount="indefinite"
+                />
+              </rect>
+            </g>
+
+            {/* Definitions */}
+            <defs>
+              <linearGradient
+                id="sandGradient"
+                x1="0%"
+                y1="0%"
+                x2="0%"
+                y2="100%"
+              >
+                <stop offset="0%" stopColor="var(--orange)" />
+                <stop offset="100%" stopColor="var(--dark-orange)" />
+              </linearGradient>
+
+              <clipPath id="sandClip">
+                <rect x="25" y="35" width="50" height="90">
+                  <animate
+                    attributeName="height"
+                    values="90;0;90"
+                    dur="4.2s"
+                    repeatCount="indefinite"
+                  />
+                  <animate
+                    attributeName="y"
+                    values="35;125;35"
+                    dur="4.2s"
+                    repeatCount="indefinite"
+                  />
+                </rect>
+              </clipPath>
+            </defs>
+          </svg>
+
+          <div className="glow-ring" />
+          <div className="particles" />
+          <div className="particles" />
+          <div className="particles" />
+          <div className="particles" />
+        </div>
+
+        <div className="loading-text">LOADING</div>
+      </div>
+
       <div className="mesh" />
       <div className="blob blob-1" />
       <div className="blob blob-2" />
       <div className="blob blob-3" />
 
       <div className="page">
-        {/* Left — branding */}
         <div className="left-col">
-          <div className="brand-tag">
-            <span className="brand-tag-dot" />
-            URL Shortener
+          <div
+            style={{
+              fontSize: "12px",
+              fontWeight: 800,
+              letterSpacing: "0.25em",
+              color: "var(--amber)",
+              marginBottom: "2rem",
+              opacity: 0.9,
+            }}
+          >
+            URL SHORTENER
           </div>
 
           <h1 className="big-title">
-            Make your
+            Short links.
             <br />
-            links <span className="gradient-word">brilliant.</span>
+            <span className="gradient-word">Big vibe.</span>
           </h1>
 
           <p className="left-desc">
-            Paste any long URL and transform it into a clean, shareable link
-            with a QR code — in under a second.
+            Drop a monster URL → get a clean link + scannable QR in one click.
+            <br />
+            No login. No nonsense.
           </p>
 
-          <div className="pills">
+          <div
+            style={{ display: "flex", flexDirection: "column", gap: "12px" }}
+          >
             <div className="pill">
-              <div className="pill-icon pi-coral">⚡</div>
-              Instant shortening, no signup
+              <div
+                className="pill-icon"
+                style={{
+                  background: "rgba(255,92,58,0.18)",
+                  color: "var(--coral)",
+                }}
+              >
+                ⚡
+              </div>
+              Zero-friction shortening
             </div>
             <div className="pill">
-              <div className="pill-icon pi-teal">◈</div>
-              Auto-generated QR code
+              <div
+                className="pill-icon"
+                style={{
+                  background: "rgba(0,212,184,0.18)",
+                  color: "var(--teal)",
+                }}
+              >
+                ◈
+              </div>
+              QR code included
             </div>
             <div className="pill">
-              <div className="pill-icon pi-amber">↓</div>
-              Download QR as PNG
+              <div
+                className="pill-icon"
+                style={{
+                  background: "rgba(255,176,32,0.18)",
+                  color: "var(--amber)",
+                }}
+              >
+                ↯
+              </div>
+              Feels fast & satisfying
             </div>
           </div>
         </div>
 
-        {/* Right — form */}
         <div className="right-col">
           <div className="card">
-            <p className="card-label">Paste your URL</p>
-
-            <div className="input-wrap">
-              <input
-                className="url-input"
-                type="url"
-                placeholder="https://example.com/your/very/long/link..."
-                value={url}
-                onChange={(e) => setUrl(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleShorten()}
-              />
-
-              <div className="btn-wrap">
-                <button
-                  className="btn-shorten"
-                  onClick={handleShorten}
-                  disabled={loading}
-                >
-                  {loading ? (
-                    <>
-                      <span className="spin-ring" />
-                      Shortening…
-                    </>
-                  ) : (
-                    "Shorten Link →"
-                  )}
-                </button>
-              </div>
+            <div
+              style={{
+                fontSize: "11px",
+                fontWeight: 800,
+                letterSpacing: "0.2em",
+                color: "var(--muted)",
+                marginBottom: "1.1rem",
+                textTransform: "uppercase",
+              }}
+            >
+              Drop your link
             </div>
+
+            <input
+              className="url-input"
+              type="url"
+              placeholder="https://super-long-link.com/that-needs-shortening/..."
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleShorten()}
+            />
+
+            <button
+              className="btn-shorten"
+              onClick={handleShorten}
+              disabled={loading}
+            >
+              {loading ? "Shortening..." : "Launch Link →"}
+            </button>
 
             {shortUrl && (
               <div className="result-section">
-                <div className="divider" />
+                <div
+                  style={{
+                    height: "1px",
+                    background:
+                      "linear-gradient(90deg, transparent, var(--border), transparent)",
+                    margin: "1.4rem 0",
+                  }}
+                />
 
                 <div className="result-chip">
                   <a
-                    className="result-link"
                     href={shortUrl}
                     target="_blank"
                     rel="noreferrer"
+                    style={{
+                      flex: 1,
+                      color: "var(--teal)",
+                      fontWeight: 700,
+                      fontSize: "14.5px",
+                      textDecoration: "none",
+                      wordBreak: "break-all",
+                    }}
                   >
-                    {shortUrl}
+                    {shortUrl.replace(/^https?:\/\//, "")}
                   </a>
                   <button
-                    className={`btn-copy${copied ? " copied" : ""}`}
+                    className={`btn-copy ${copied ? "copied" : ""}`}
                     onClick={handleCopy}
                   >
-                    {copied ? "✓ Done" : "Copy"}
+                    {copied ? "✓ Copied" : "Copy"}
                   </button>
                 </div>
 
                 <div className="qr-area">
                   <div className="qr-box">
-                    <QRCode value={shortUrl} size={110} />
+                    <QRCode value={shortUrl} size={124} />
                   </div>
-                  <div className="qr-info">
-                    <p className="qr-desc">
-                      Scan with any camera app to open the link on any device.
-                    </p>
+
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "0.8rem",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <div
+                      style={{
+                        fontSize: "13.5px",
+                        color: "var(--muted)",
+                        maxWidth: "220px",
+                      }}
+                    >
+                      Point camera → instant access. Works everywhere.
+                    </div>
+
                     {qrImage && (
                       <a
-                        className="btn-dl"
                         href={qrImage}
-                        download="qr-code.png"
+                        download="my-short-link-qr.png"
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "6px",
+                          padding: "0.6rem 1.1rem",
+                          background:
+                            "linear-gradient(135deg, rgba(64,196,255,0.12), rgba(0,212,184,0.12))",
+                          border: "1px solid rgba(64,196,255,0.2)",
+                          borderRadius: "10px",
+                          color: "var(--sky)",
+                          fontWeight: 700,
+                          fontSize: "12.5px",
+                          textDecoration: "none",
+                          width: "fit-content",
+                        }}
                       >
-                        ↓ Download QR
+                        ↓ Save QR
                       </a>
                     )}
                   </div>
